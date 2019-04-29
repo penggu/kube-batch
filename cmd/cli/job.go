@@ -36,7 +36,7 @@ func buildJobCmd() *cobra.Command {
 		Use: "view",
 		Short: "show job information",
 		Run: func(cmd *cobra.Command, args []string) {
-			checkError(cmd, job.ViewJobs())
+			checkError(cmd, job.ViewJob())
 		},
 	}
 	job.InitViewFlags(jobViewCmd)

@@ -31,7 +31,7 @@ func InitViewFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVarP(&viewJobFlags.JobName, "name", "n", "", "the name of job")
 }
 
-func ViewJobs() error {
+func ViewJob() error {
 	config, err := buildConfig(viewJobFlags.Master, viewJobFlags.Kubeconfig)
 	if err != nil {
 		return err
@@ -53,8 +53,8 @@ func ViewJobs() error {
 }
 
 func PrintJob(job *v1alpha1.Job, writer io.Writer) {
-	_, err := fmt.Fprintf(writer, "%-25s%-25s%-12s%-12s%-6s%-10s%-10s%-12s%-10s%-12s\n",
-		Name, Creation, Phase, Replicas, Min, Pending, Running, Succeeded, Failed , RetryCount)
+	_, err := fmt.Fprintf(writer, fmt.Sprintf("%%-%ds%%-25s%%-12s%%-12s%%-6s%%-10s%%-10s%%-12s%%-10s%%-12s\n", len(job.Name) + 3),
+		Name, Creation, Phase, Replicas, Min, Pending, Running, Succeeded, Failed, RetryCount)
 	if err != nil {
 		fmt.Printf("Failed to print view command result: %s.\n", err)
 	}
@@ -62,7 +62,7 @@ func PrintJob(job *v1alpha1.Job, writer io.Writer) {
 	for _, ts := range job.Spec.Tasks {
 		replicas += ts.Replicas
 	}
-	_, err = fmt.Fprintf(writer, "%-25s%-25s%-12s%-12d%-6d%-10d%-10d%-12d%-10d%-12d\n",
+	_, err = fmt.Fprintf(writer, fmt.Sprintf("%%-%ds%%-25s%%-12s%%-12d%%-6d%%-10d%%-10d%%-12d%%-10d%%-12d\n", len(job.Name) + 3),
 		job.Name, job.CreationTimestamp.Format("2006-01-02 15:04:05"), job.Status.State.Phase, replicas,
 		job.Status.MinAvailable, job.Status.Pending, job.Status.Running, job.Status.Succeeded, job.Status.Failed, job.Status.RetryCount)
 	if err != nil {
