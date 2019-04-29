@@ -53,18 +53,13 @@ func ViewJob() error {
 }
 
 func PrintJob(job *v1alpha1.Job, writer io.Writer) {
-	_, err := fmt.Fprintf(writer, fmt.Sprintf("%%-%ds%%-25s%%-12s%%-12s%%-6s%%-10s%%-10s%%-12s%%-10s%%-12s\n", len(job.Name) + 3),
-		Name, Creation, Phase, Replicas, Min, Pending, Running, Succeeded, Failed, RetryCount)
-	if err != nil {
-		fmt.Printf("Failed to print view command result: %s.\n", err)
-	}
 	replicas := int32(0)
 	for _, ts := range job.Spec.Tasks {
 		replicas += ts.Replicas
 	}
-	_, err = fmt.Fprintf(writer, fmt.Sprintf("%%-%ds%%-25s%%-12s%%-12d%%-6d%%-10d%%-10d%%-12d%%-10d%%-12d\n", len(job.Name) + 3),
-		job.Name, job.CreationTimestamp.Format("2006-01-02 15:04:05"), job.Status.State.Phase, replicas,
-		job.Status.MinAvailable, job.Status.Pending, job.Status.Running, job.Status.Succeeded, job.Status.Failed, job.Status.RetryCount)
+	_, err := fmt.Fprintf(writer, "%-12s %s\n%-12s %s\n%-12s %s\n%-12s %d\n%-12s %d\n%-12s %d\n%-12s %d\n%-12s %d\n%-12s %d\n%-12s %d\n",
+		Name, job.Name, Creation, job.CreationTimestamp.Format("2006-01-02 15:04:05"), Phase, job.Status.State.Phase, Replicas, replicas,
+		Min, job.Status.MinAvailable, Pending, job.Status.Pending, Running, job.Status.Running, Succeeded, job.Status.Succeeded, Failed, job.Status.Failed, RetryCount, job.Status.RetryCount)
 	if err != nil {
 		fmt.Printf("Failed to print view command result: %s.\n", err)
 	}
