@@ -16,6 +16,7 @@ limitations under the License.
 package job
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
 
 	"k8s.io/api/core/v1"
@@ -35,6 +36,7 @@ type runFlags struct {
 	MinAvailable int
 	Replicas     int
 	Requests     string
+	Limits       string
 }
 
 var launchJobFlags = &runFlags{}
@@ -48,6 +50,7 @@ func InitRunFlags(cmd *cobra.Command) {
 	cmd.Flags().IntVarP(&launchJobFlags.MinAvailable, "min", "m", 1, "the minimal available tasks of job")
 	cmd.Flags().IntVarP(&launchJobFlags.Replicas, "replicas", "r", 1, "the total tasks of job")
 	cmd.Flags().StringVarP(&launchJobFlags.Requests, "requests", "R", "cpu=1000m,memory=100Mi", "the resource request of the task")
+	cmd.Flags().StringVarP(&launchJobFlags.Limits, "limits", "l", "cpu=1000m,memory=100Mi", "the resource limit of the task")
 }
 
 var jobName = "job.volcano.sh"
@@ -61,6 +64,29 @@ func RunJob() error {
 	req, err := populateResourceListV1(launchJobFlags.Requests)
 	if err != nil {
 		return err
+	}
+
+	limit, err := populateResourceListV1(launchJobFlags.Limits)
+	if err != nil {
+		return err
+	}
+
+	cpuLimit, cpuLimitFound := limit["cpu"]
+	memLimit, memLimitFound := limit["memory"]
+
+	cpuRequest, cpuRequestFound := req["cpu"]
+	memRequest, memRequestFound := req["memory"]
+
+	if cpuLimitFound && cpuRequestFound {
+		if cpuLimit.Cmp(cpuRequest) < 0 {
+			return fmt.Errorf("limits resource of cpu is less than requests")
+		}
+	}
+
+	if memLimitFound && memRequestFound {
+		if memLimit.Cmp(memRequest) < 0 {
+			return fmt.Errorf("limits resource of memory is less than requests")
+		}
 	}
 
 	job := &vkapi.Job{
@@ -88,6 +114,7 @@ func RunJob() error {
 									Name:            launchJobFlags.Name,
 									ImagePullPolicy: v1.PullIfNotPresent,
 									Resources: v1.ResourceRequirements{
+										Limits: limit,
 										Requests: req,
 									},
 								},
