@@ -161,12 +161,12 @@ func (cc *Controller) createJob(jobInfo *apis.JobInfo, nextState state.UpdateSta
 	job := jobInfo.Job
 	glog.Infof("Current Version is: %d of job: %s/%s", job.Status.Version, job.Namespace, job.Name)
 
-	update, err := cc.checkUpdate(job)
+	update, newJob, err := cc.checkUpdate(job)
 	if err != nil {
 		return err
 	}
 	if update {
-		if job, err := cc.vkClients.BatchV1alpha1().Jobs(job.Namespace).Update(job); err != nil {
+		if job, err := cc.vkClients.BatchV1alpha1().Jobs(job.Namespace).Update(newJob); err != nil {
 			glog.Errorf("Failed to update Job %v/%v: %v",
 				job.Namespace, job.Name, err)
 			return err
@@ -384,8 +384,9 @@ func (cc *Controller) createJobIOIfNotExist(job *vkv1.Job) error {
 	return nil
 }
 
-func (cc *Controller) checkUpdate(job *vkv1.Job) (bool, error) {
+func (cc *Controller) checkUpdate(job *vkv1.Job) (bool, *vkv1.Job, error) {
 	// If VolumeClaimName does not exist, generate them for Job.
+	var newJob *vkv1.Job
 	volumes := job.Spec.Volumes
 	update := false
 	for index, volume := range volumes {
@@ -396,17 +397,21 @@ func (cc *Controller) checkUpdate(job *vkv1.Job) (bool, error) {
 				vcName = fmt.Sprintf("%s-volume-%s", job.Name, randomStr)
 				exist, err := cc.checkPVCExist(job, vcName)
 				if err != nil {
-					return false, err
+					return false, nil, err
 				}
-				if !exist {
-					volumes[index].VolumeClaimName = vcName
-					update = true
-					break
+				if exist {
+					continue
 				}
+				if newJob == nil {
+					newJob = job.DeepCopy()
+				}
+				newJob.Spec.Volumes[index].VolumeClaimName = vcName
+				update = true
+				break
 			}
 		}
 	}
-	return update, nil
+	return update, newJob, nil
 }
 
 func (cc *Controller) checkPVCExist(job *vkv1.Job, vcName string) (bool, error) {
