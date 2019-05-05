@@ -42,8 +42,6 @@ func (cc *Controller) killJob(jobInfo *apis.JobInfo, updateStatus state.UpdateSt
 	defer glog.V(3).Infof("Finished Job <%s/%s> killing", jobInfo.Job.Namespace, jobInfo.Job.Name)
 
 	job := jobInfo.Job
-	//Job version is bumped only when job is killed
-	job.Status.Version = job.Status.Version + 1
 	glog.Infof("Current Version is: %d of job: %s/%s", job.Status.Version, job.Namespace, job.Name)
 	if job.DeletionTimestamp != nil {
 		glog.Infof("Job <%s/%s> is terminating, skip management process.",
@@ -108,6 +106,9 @@ func (cc *Controller) killJob(jobInfo *apis.JobInfo, updateStatus state.UpdateSt
 		return fmt.Errorf("failed to kill %d pods of %d", len(errs), total)
 	}
 
+	job = job.DeepCopy()
+	//Job version is bumped only when job is killed
+	job.Status.Version = job.Status.Version + 1
 	job.Status = vkv1.JobStatus{
 		State: job.Status.State,
 
@@ -132,6 +133,8 @@ func (cc *Controller) killJob(jobInfo *apis.JobInfo, updateStatus state.UpdateSt
 		return err
 	} else {
 		if e := cc.cache.Update(job); e != nil {
+			glog.Errorf("KillJob - Failed to update Job %v/%v in cache:  %v",
+				job.Namespace, job.Name, e)
 			return e
 		}
 	}
@@ -195,7 +198,7 @@ func (cc *Controller) syncJob(jobInfo *apis.JobInfo, updateStatus state.UpdateSt
 	glog.V(3).Infof("Starting to sync up Job <%s/%s>", jobInfo.Job.Namespace, jobInfo.Job.Name)
 	defer glog.V(3).Infof("Finished Job <%s/%s> sync up", jobInfo.Job.Namespace, jobInfo.Job.Name)
 
-	job := jobInfo.Job
+	job := jobInfo.Job.DeepCopy()
 	glog.Infof("Current Version is: %d of job: %s/%s", job.Status.Version, job.Namespace, job.Name)
 
 	if job.DeletionTimestamp != nil {
@@ -341,6 +344,8 @@ func (cc *Controller) syncJob(jobInfo *apis.JobInfo, updateStatus state.UpdateSt
 		return err
 	} else {
 		if e := cc.cache.Update(job); e != nil {
+			glog.Errorf("CreateJob - Failed to update Job %v/%v in cache:  %v",
+				job.Namespace, job.Name, e)
 			return e
 		}
 	}
