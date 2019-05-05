@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 
 	"github.com/golang/glog"
@@ -72,8 +73,21 @@ func (cc *Controller) updateJob(oldObj, newObj interface{}) {
 		return
 	}
 
+	oldJob, ok := oldObj.(*vkbatchv1.Job)
+	if !ok {
+		glog.Errorf("oldJob is not Job")
+		return
+	}
+
+	//NOTE: Since we only reconcile job based on Spec, we will ignore other attributes
+	// For Job status, it's used internally and always been updated via our controller.
+	if reflect.DeepEqual(newJob.Spec, oldJob.Spec) && newJob.Status.State.Phase == oldJob.Status.State.Phase {
+		glog.Infof("Job update event is ignored since no update in 'Spec'.")
+		return
+	}
+
 	if err := cc.cache.Update(newJob); err != nil {
-		glog.Errorf("Failed to update job <%s/%s>: %v in cache",
+		glog.Errorf("UpdateJob - Failed to update job <%s/%s> in cache: %v ",
 			newJob.Namespace, newJob.Name, err)
 	}
 
