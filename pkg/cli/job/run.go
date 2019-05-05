@@ -50,6 +50,7 @@ func InitRunFlags(cmd *cobra.Command) {
 	cmd.Flags().IntVarP(&launchJobFlags.MinAvailable, "min", "m", 1, "the minimal available tasks of job")
 	cmd.Flags().IntVarP(&launchJobFlags.Replicas, "replicas", "r", 1, "the total tasks of job")
 	cmd.Flags().StringVarP(&launchJobFlags.Requests, "requests", "R", "cpu=1000m,memory=100Mi", "the resource request of the task")
+	cmd.Flags().StringVarP(&launchJobFlags.SchedulerName, "scheduler", "S", "kube-batch", "the scheduler for this job")
 	cmd.Flags().StringVarP(&launchJobFlags.Limits, "limits", "l", "cpu=1000m,memory=100Mi", "the resource limit of the task")
 }
 
