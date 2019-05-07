@@ -60,6 +60,11 @@ func (ssn *Session) AddPredicateFn(name string, pf api.PredicateFn) {
 	ssn.predicateFns[name] = pf
 }
 
+// AddCacheablePredicateFn add cacheable Predicate function
+func (ssn *Session) AddCacheablePredicateFn(name string, pf api.PredicateFn) {
+	ssn.predicateFns[name] = pf
+}
+
 // AddNodeOrderFn add Node order function
 func (ssn *Session) AddNodeOrderFn(name string, pf api.NodeOrderFn) {
 	ssn.nodeOrderFns[name] = pf

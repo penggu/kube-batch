@@ -33,6 +33,11 @@ import (
 	"volcano.sh/volcano/pkg/scheduler/metrics"
 )
 
+type PredicateFns struct {
+	cacheable    map[string]api.PredicateFn
+	noncacheable map[string]api.PredicateFn
+}
+
 // Session information for the current session
 type Session struct {
 	UID types.UID
