@@ -43,7 +43,7 @@ type Session struct {
 	UID types.UID
 
 	cache            cache.Cache
-	predicateFnCache map[string]bool
+	predicateFnCache map[string]error
 
 	Jobs    map[api.JobID]*api.JobInfo
 	Nodes   map[string]*api.NodeInfo

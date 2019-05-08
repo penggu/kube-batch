@@ -334,6 +334,37 @@ func (ssn *Session) TaskOrderFn(l, r interface{}) bool {
 
 }
 
+// getHash generate a string that uniquely identifies a triple
+// (pfn, task->pod->podTemplateSpec, node)
+func (ssn *Session) getHash(
+	pfn *api.PredicateFn,
+	task *api.TaskInfo,
+	node *api.NodeInfo) (string, error) {
+	// TODO: This is a place holder, needs implementation
+	return "", nil
+}
+
+// predicateFnCacheLookup tell if a cache entry exists
+func (ssn *Session) predicateFnCacheLookup(
+	pfn *api.PredicateFn,
+	task *api.TaskInfo,
+	node *api.NodeInfo) (error, bool) {
+	hash, _ := ssn.getHash(pfn, task, node)
+	err, found := ssn.predicateFnCache[hash]
+	return err, found
+}
+
+// predicateFnCacheAdd add a cache entry into predicateFnCache
+func (ssn *Session) predicateFnCacheAdd(
+	pfn *api.PredicateFn,
+	task *api.TaskInfo,
+	node *api.NodeInfo,
+	err error) error {
+	hash, _ := ssn.getHash(pfn, task, node)
+	ssn.predicateFnCache[hash] = err
+	return nil
+}
+
 // PredicateFn invoke predicate function of the plugins
 func (ssn *Session) PredicateFn(task *api.TaskInfo, node *api.NodeInfo) error {
 	for _, tier := range ssn.Tiers {
@@ -345,16 +376,18 @@ func (ssn *Session) PredicateFn(task *api.TaskInfo, node *api.NodeInfo) error {
 			if !found {
 				continue
 			}
-			err := pfn(task, node)
-			if err != nil {
+			if err, cachehit := ssn.predicateFnCacheLookup(&pfn, task, node); cachehit {
+				return err
+			}
+			if err := pfn(task, node); err != nil {
+				ssn.predicateFnCacheAdd(&pfn, task, node, err)
 				return err
 			}
 			pfn, found = ssn.predicateFns.noncacheable[plugin.Name]
 			if !found {
 				continue
 			}
-			err = pfn(task, node)
-			if err != nil {
+			if err := pfn(task, node); err != nil {
 				return err
 			}
 		}
