@@ -55,14 +55,14 @@ func (ssn *Session) AddJobPipelinedFn(name string, vf api.ValidateFn) {
 	ssn.jobPipelinedFns[name] = vf
 }
 
-// AddPredicateFn add Predicate function
+// AddPredicateFn add non-cacheable Predicate function
 func (ssn *Session) AddPredicateFn(name string, pf api.PredicateFn) {
-	ssn.predicateFns[name] = pf
+	ssn.predicateFns.noncacheable[name] = pf
 }
 
 // AddCacheablePredicateFn add cacheable Predicate function
 func (ssn *Session) AddCacheablePredicateFn(name string, pf api.PredicateFn) {
-	ssn.predicateFns[name] = pf
+	ssn.predicateFns.cacheable[name] = pf
 }
 
 // AddNodeOrderFn add Node order function
@@ -341,11 +341,19 @@ func (ssn *Session) PredicateFn(task *api.TaskInfo, node *api.NodeInfo) error {
 			if !isEnabled(plugin.EnabledPredicate) {
 				continue
 			}
-			pfn, found := ssn.predicateFns[plugin.Name]
+			pfn, found := ssn.predicateFns.cacheable[plugin.Name]
 			if !found {
 				continue
 			}
 			err := pfn(task, node)
+			if err != nil {
+				return err
+			}
+			pfn, found = ssn.predicateFns.noncacheable[plugin.Name]
+			if !found {
+				continue
+			}
+			err = pfn(task, node)
 			if err != nil {
 				return err
 			}
