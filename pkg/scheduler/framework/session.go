@@ -42,7 +42,8 @@ type PredicateFns struct {
 type Session struct {
 	UID types.UID
 
-	cache cache.Cache
+	cache            cache.Cache
+	predicateFnCache map[string]bool
 
 	Jobs    map[api.JobID]*api.JobInfo
 	Nodes   map[string]*api.NodeInfo
