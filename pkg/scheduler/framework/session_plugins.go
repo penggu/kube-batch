@@ -17,6 +17,8 @@ limitations under the License.
 package framework
 
 import (
+	"fmt"
+	vkv1 "volcano.sh/volcano/pkg/apis/batch/v1alpha1"
 	"volcano.sh/volcano/pkg/scheduler/api"
 )
 
@@ -336,12 +338,14 @@ func (ssn *Session) TaskOrderFn(l, r interface{}) bool {
 
 // getHash generate a string that uniquely identifies a triple
 // (pfn, task->pod->podTemplateSpec, node)
-func (ssn *Session) getHash(
+func (ssn *Session) predicateFnCacheGetKey(
 	pfn *api.PredicateFn,
 	task *api.TaskInfo,
 	node *api.NodeInfo) (string, error) {
-	// TODO: This is a place holder, needs implementation
-	return "", nil
+	ptr := fmt.Sprintf("%#v", pfn)
+	podSpecTemplateId := task.Pod.Annotations[vkv1.PodTemplateSpecKey]
+	nodeName := node.Name
+	return ptr + " " + podSpecTemplateId + " " + nodeName, nil
 }
 
 // predicateFnCacheLookup tell if a cache entry exists
@@ -349,8 +353,8 @@ func (ssn *Session) predicateFnCacheLookup(
 	pfn *api.PredicateFn,
 	task *api.TaskInfo,
 	node *api.NodeInfo) (error, bool) {
-	hash, _ := ssn.getHash(pfn, task, node)
-	err, found := ssn.predicateFnCache[hash]
+	cacheKey, _ := ssn.predicateFnCacheGetKey(pfn, task, node)
+	err, found := ssn.predicateFnCache[cacheKey]
 	return err, found
 }
 
@@ -360,8 +364,8 @@ func (ssn *Session) predicateFnCacheAdd(
 	task *api.TaskInfo,
 	node *api.NodeInfo,
 	err error) error {
-	hash, _ := ssn.getHash(pfn, task, node)
-	ssn.predicateFnCache[hash] = err
+	cacheKey, _ := ssn.predicateFnCacheGetKey(pfn, task, node)
+	ssn.predicateFnCache[cacheKey] = err
 	return nil
 }
 

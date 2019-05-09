@@ -60,6 +60,13 @@ func createJobPod(job *vkv1.Job, template *v1.PodTemplateSpec, ix int) *v1.Pod {
 		Spec: templateCopy.Spec,
 	}
 
+	// To be used by scheduler equivalent cache for predicates.
+	// We can either use UID or a tuple(Namespace, Name) to uniquely
+	// identify a pod template. We use UID here for the simplicity.
+	// Question: we UID be re-generated during deepcopy()? If so, we will
+	// have to use tuple(Namespace, Name) instead of UID.
+	pod.Annotations[vkv1.PodTemplateSpecKey] = string(template.GetUID())
+
 	// If no scheduler name in Pod, use scheduler name from Job.
 	if len(pod.Spec.SchedulerName) == 0 {
 		pod.Spec.SchedulerName = job.Spec.SchedulerName
