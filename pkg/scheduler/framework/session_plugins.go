@@ -17,6 +17,8 @@ limitations under the License.
 package framework
 
 import (
+	"fmt"
+	vkv1 "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api"
 )
@@ -56,9 +58,14 @@ func (ssn *Session) AddJobPipelinedFn(name string, vf api.ValidateFn) {
 	ssn.jobPipelinedFns[name] = vf
 }
 
-// AddPredicateFn add Predicate function
+// AddPredicateFn add non-cacheable Predicate function
 func (ssn *Session) AddPredicateFn(name string, pf api.PredicateFn) {
-	ssn.predicateFns[name] = pf
+	ssn.predicateFns.noncacheable[name] = pf
+}
+
+// AddCacheablePredicateFn add cacheable Predicate function
+func (ssn *Session) AddCacheablePredicateFn(name string, pf api.PredicateFn) {
+	ssn.predicateFns.cacheable[name] = pf
 }
 
 // AddNodeOrderFn add Node order function
@@ -340,6 +347,44 @@ func (ssn *Session) TaskOrderFn(l, r interface{}) bool {
 
 }
 
+// getHash generate a string that uniquely identifies a triple
+// (pfn, task->pod->podTemplateSpec, node)
+func (ssn *Session) predicateFnCacheGetKey(
+	pfn *api.PredicateFn,
+	task *api.TaskInfo,
+	node *api.NodeInfo) (string, error) {
+	ptr := fmt.Sprintf("%#v", pfn)
+	podSpecTemplateId := task.Pod.Annotations[vkv1.PodTemplateSpecAnnotationKey]
+	if len(podSpecTemplateId) == 0 {
+		podSpecTemplateId = "PodUID:" + string(task.Pod.UID)
+	} else {
+		podSpecTemplateId = "SpecID:" + podSpecTemplateId
+	}
+	nodeName := node.Name
+	return ptr + " " + podSpecTemplateId + " " + nodeName, nil
+}
+
+// predicateFnCacheLookup tell if a cache entry exists
+func (ssn *Session) predicateFnCacheLookup(
+	pfn *api.PredicateFn,
+	task *api.TaskInfo,
+	node *api.NodeInfo) (error, bool) {
+	cacheKey, _ := ssn.predicateFnCacheGetKey(pfn, task, node)
+	err, found := ssn.predicateFnCache[cacheKey]
+	return err, found
+}
+
+// predicateFnCacheAdd add a cache entry into predicateFnCache
+func (ssn *Session) predicateFnCacheAdd(
+	pfn *api.PredicateFn,
+	task *api.TaskInfo,
+	node *api.NodeInfo,
+	err error) error {
+	cacheKey, _ := ssn.predicateFnCacheGetKey(pfn, task, node)
+	ssn.predicateFnCache[cacheKey] = err
+	return nil
+}
+
 // PredicateFn invoke predicate function of the plugins
 func (ssn *Session) PredicateFn(task *api.TaskInfo, node *api.NodeInfo) error {
 	for _, tier := range ssn.Tiers {
@@ -347,12 +392,22 @@ func (ssn *Session) PredicateFn(task *api.TaskInfo, node *api.NodeInfo) error {
 			if !isEnabled(plugin.EnabledPredicate) {
 				continue
 			}
-			pfn, found := ssn.predicateFns[plugin.Name]
+			pfn, found := ssn.predicateFns.cacheable[plugin.Name]
 			if !found {
 				continue
 			}
-			err := pfn(task, node)
-			if err != nil {
+			if err, cachehit := ssn.predicateFnCacheLookup(&pfn, task, node); cachehit {
+				return err
+			}
+			if err := pfn(task, node); err != nil {
+				ssn.predicateFnCacheAdd(&pfn, task, node, err)
+				return err
+			}
+			pfn, found = ssn.predicateFns.noncacheable[plugin.Name]
+			if !found {
+				continue
+			}
+			if err := pfn(task, node); err != nil {
 				return err
 			}
 		}

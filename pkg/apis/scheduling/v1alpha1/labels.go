@@ -18,4 +18,7 @@ package v1alpha1
 
 // GroupNameAnnotationKey is the annotation key of Pod to identify
 // which PodGroup it belongs to.
-const GroupNameAnnotationKey = "scheduling.k8s.io/group-name"
+const (
+	GroupNameAnnotationKey       = "scheduling.k8s.io/group-name"
+	PodTemplateSpecAnnotationKey = "scheduling.k8s.io/pod-template-spec"
+)

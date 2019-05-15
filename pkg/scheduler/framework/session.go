@@ -33,11 +33,17 @@ import (
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/metrics"
 )
 
+type PredicateFns struct {
+	cacheable    map[string]api.PredicateFn
+	noncacheable map[string]api.PredicateFn
+}
+
 // Session information for the current session
 type Session struct {
 	UID types.UID
 
-	cache cache.Cache
+	cache            cache.Cache
+	predicateFnCache map[string]error
 
 	Jobs    map[api.JobID]*api.JobInfo
 	Nodes   map[string]*api.NodeInfo
@@ -50,7 +56,7 @@ type Session struct {
 	jobOrderFns     map[string]api.CompareFn
 	queueOrderFns   map[string]api.CompareFn
 	taskOrderFns    map[string]api.CompareFn
-	predicateFns    map[string]api.PredicateFn
+	predicateFns    PredicateFns
 	nodeOrderFns    map[string]api.NodeOrderFn
 	nodeMapFns      map[string]api.NodeMapFn
 	nodeReduceFns   map[string]api.NodeReduceFn
@@ -71,11 +77,14 @@ func openSession(cache cache.Cache) *Session {
 		Nodes:  map[string]*api.NodeInfo{},
 		Queues: map[api.QueueID]*api.QueueInfo{},
 
-		plugins:         map[string]Plugin{},
-		jobOrderFns:     map[string]api.CompareFn{},
-		queueOrderFns:   map[string]api.CompareFn{},
-		taskOrderFns:    map[string]api.CompareFn{},
-		predicateFns:    map[string]api.PredicateFn{},
+		plugins:       map[string]Plugin{},
+		jobOrderFns:   map[string]api.CompareFn{},
+		queueOrderFns: map[string]api.CompareFn{},
+		taskOrderFns:  map[string]api.CompareFn{},
+		predicateFns: PredicateFns{
+			cacheable:    map[string]api.PredicateFn{},
+			noncacheable: map[string]api.PredicateFn{},
+		},
 		nodeOrderFns:    map[string]api.NodeOrderFn{},
 		nodeMapFns:      map[string]api.NodeMapFn{},
 		nodeReduceFns:   map[string]api.NodeReduceFn{},
